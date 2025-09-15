@@ -42,7 +42,6 @@ function CategoryForm({ onCategoryAdded }: { onCategoryAdded?: () => void }) {
   };
   return (
     <form onSubmit={handleSubmit} className="bg-gray-950 p-4 rounded-lg shadow w-full max-w-xs mx-auto mt-4">
-      <h3 className="text-lg font-bold mb-3 text-white text-center">Tambah Kategori</h3>
       <div className="mb-3">
         <label className="block mb-1 text-sm text-white">Jenis</label>
         <select
@@ -156,7 +155,6 @@ function CategoryTable({ refresh }: { refresh: number }) {
 
   return (
     <div className="bg-gray-950 p-4 rounded-lg shadow w-full max-w-xs mx-auto mt-4">
-      <h3 className="text-lg font-bold mb-3 text-white text-center">Daftar Kategori</h3>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-white">

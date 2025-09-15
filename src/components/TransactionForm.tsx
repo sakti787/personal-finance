@@ -70,7 +70,6 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
 
   return (
     <form onSubmit={handleSubmit} className="mb-6 bg-gray-950 p-4 rounded-lg shadow w-full max-w-xs mx-auto">
-      <h3 className="text-lg font-bold mb-3 text-white text-center">Tambah Transaksi</h3>
       <div className="mb-3">
         <label className="block mb-1 text-sm text-white">Jenis</label>
         <select
