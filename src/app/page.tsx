@@ -76,7 +76,13 @@ function CategoryForm({ onCategoryAdded }: { onCategoryAdded?: () => void }) {
 }
 
 function CategoryTable({ refresh }: { refresh: number }) {
-  const [categories, setCategories] = useState<any[]>([]);
+  type Category = {
+    id?: string;
+    name: string;
+    type: "Pengeluaran" | "Pemasukan";
+    user_id?: string;
+  };
+  const [categories, setCategories] = useState<Category[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -96,7 +102,7 @@ function CategoryTable({ refresh }: { refresh: number }) {
   useEffect(() => {
     const fetchCategories = async () => {
       const { data } = await supabase.from("categories").select("id, name, user_id, type");
-      setCategories(data || []);
+      setCategories(data as Category[] || []);
     };
     fetchCategories();
   }, [refresh, localRefresh]);
@@ -179,13 +185,13 @@ function CategoryTable({ refresh }: { refresh: number }) {
               <td className="p-2 flex gap-2">
                 {editId === cat.id ? (
                   <>
-                    <button className="bg-blue-600 px-2 py-1 rounded text-white" onClick={() => handleEdit(cat.id)} disabled={loading}>Simpan</button>
+                    <button className="bg-blue-600 px-2 py-1 rounded text-white" onClick={() => handleEdit(cat.id ?? "")} disabled={loading}>Simpan</button>
                     <button className="bg-gray-600 px-2 py-1 rounded text-white" onClick={() => setEditId(null)} disabled={loading}>Batal</button>
                   </>
                 ) : (
                   <>
-                    <button className="bg-yellow-600 px-2 py-1 rounded text-white" onClick={() => { setEditId(cat.id); setEditName(cat.name); setEditError(""); setEditSuccess(""); }} disabled={loading}>Edit</button>
-                    <button className="bg-red-600 px-2 py-1 rounded text-white" onClick={() => handleDelete(cat.id)} disabled={loading}>Delete</button>
+                    <button className="bg-yellow-600 px-2 py-1 rounded text-white" onClick={() => { setEditId(cat.id ?? ""); setEditName(cat.name); setEditError(""); setEditSuccess(""); }} disabled={loading}>Edit</button>
+                    <button className="bg-red-600 px-2 py-1 rounded text-white" onClick={() => handleDelete(cat.id ?? "")} disabled={loading}>Delete</button>
                   </>
                 )}
               </td>

@@ -10,6 +10,12 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  type Category = {
+    id?: string;
+    name: string;
+    type: "Pengeluaran" | "Pemasukan";
+    user_id?: string;
+  };
   const [categories, setCategories] = useState<string[]>([]);
   const [userId, setUserId] = useState<string>("");
   const [type, setType] = useState("Pengeluaran");
@@ -17,7 +23,7 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
   useEffect(() => {
     const fetchCategories = async () => {
       const { data } = await supabase.from("categories").select("name, type");
-      setCategories(data ? data.filter((cat: any) => cat.type === type).map((cat: any) => cat.name) : []);
+      setCategories(data ? data.filter((cat: Category) => cat.type === type).map((cat: Category) => cat.name) : []);
     };
     fetchCategories();
   }, [refreshCategories, type]);
