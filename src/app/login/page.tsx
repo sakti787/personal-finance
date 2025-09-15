@@ -20,8 +20,8 @@ export default function LoginPage() {
       email,
       password,
     });
-    if (error) setError(error.message);
-    else router.push("/dashboard");
+  if (error) setError(error.message);
+  else router.push("/");
     setLoading(false);
   };
 
