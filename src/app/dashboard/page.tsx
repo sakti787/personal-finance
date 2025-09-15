@@ -1,20 +1,4 @@
 "use client";
-// Fungsi download CSV
-function handleDownloadCSV(filteredTransactions: Transaction[]) {
-  if (!filteredTransactions.length) return;
-  const header = ["Tanggal", "Kategori", "Deskripsi", "Nominal", "Tipe"];
-  const rows = filteredTransactions.map((tx: Transaction) => [tx.date, tx.category, tx.description || "", tx.amount.toString(), tx.type]);
-  const csvContent = [header, ...rows].map((e: string[]) => e.map((v: string) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "transaksi.csv";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 import { useEffect, useState } from "react";
 
 type Transaction = {
@@ -80,9 +64,11 @@ export default function DashboardPage() {
   }
 
   // Filter transaksi
+  // Urutkan transaksi berdasarkan tanggal terbaru
+  const sortedTransactions = [...transactions].sort((a, b) => (a.date < b.date ? 1 : -1));
   const filteredTransactions = selectedMonth
-    ? transactions.filter((tx) => tx.date?.slice(0, 7) === selectedMonth)
-    : transactions;
+    ? sortedTransactions.filter((tx) => tx.date?.slice(0, 7) === selectedMonth)
+    : sortedTransactions;
 
   // Filter transaksi untuk keterangan saldo
   const summaryTransactions = summaryMonth
@@ -440,27 +426,18 @@ export default function DashboardPage() {
       </div>
       {/* Filter by month dan tabel transaksi */}
       <div className="w-full bg-gray-950 rounded-xl shadow-lg p-4 mt-8 overflow-x-auto">
-        {/* Tombol download CSV di atas tabel transaksi */}
-        <div className="mb-4 flex flex-col md:flex-row items-center gap-2 justify-between">
-          <div className="flex items-center gap-2">
-            <label className="text-white text-sm">Filter Bulan:</label>
-            <select
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              className="p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua Bulan</option>
-              {months.map((m) => (
-                <option key={m} value={m}>{formatMonth(m)}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow"
-            onClick={() => handleDownloadCSV(filteredTransactions)}
+        <div className="mb-4 flex flex-col md:flex-row items-center gap-2">
+          <label className="text-white text-sm">Filter Bulan:</label>
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            Download CSV Transaksi
-          </button>
+            <option value="">Semua Bulan</option>
+            {months.map((m) => (
+              <option key={m} value={m}>{formatMonth(m)}</option>
+            ))}
+          </select>
         </div>
         <table className="w-full text-sm">
           <thead>
@@ -476,7 +453,7 @@ export default function DashboardPage() {
             {filteredTransactions.map((tx) => (
               <tr key={tx.id} className="border-b border-gray-800">
                 <td className="p-3">{editId === tx.id ? (
-                  <input value={editData.date ?? tx.date} onChange={e => setEditData({ ...editData, date: e.target.value })} className="bg-gray-800 text-white p-1 rounded w-full" />
+                  <input type="date" value={editData.date ?? tx.date} onChange={e => setEditData({ ...editData, date: e.target.value })} className="bg-gray-800 text-white p-1 rounded w-full" />
                 ) : formatTanggal(tx.date)}</td>
                 <td className="p-3">{editId === tx.id ? (
                   <select
