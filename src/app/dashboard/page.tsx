@@ -1,5 +1,22 @@
 "use client";
 import { useEffect, useState } from "react";
+
+type Transaction = {
+  id?: string;
+  date: string;
+  category: string;
+  amount: number;
+  description?: string;
+  user_id: string;
+  type: "Pengeluaran" | "Pemasukan";
+};
+
+type Category = {
+  id?: string;
+  name: string;
+  type: "Pengeluaran" | "Pemasukan";
+  user_id?: string;
+};
 import { supabase, getUser } from "@/lib/supabaseClient";
 import TransactionForm from "@/components/TransactionForm";
 import Sidebar from "@/components/Sidebar";
@@ -18,11 +35,11 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend);
 
 export default function DashboardPage() {
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarHidden, setSidebarHidden] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<any>({});
+  const [editData, setEditData] = useState<Partial<Transaction>>({});
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [summaryMonth, setSummaryMonth] = useState<string>("");
@@ -101,7 +118,7 @@ export default function DashboardPage() {
     useEffect(() => {
       const fetchCategories = async () => {
         const { data } = await supabase.from("categories").select("name");
-        setCategories(data ? data.map((cat: any) => cat.name) : []);
+        setCategories(data ? data.map((cat: { name: string }) => cat.name) : []);
       };
       fetchCategories();
     }, []);
@@ -452,7 +469,7 @@ export default function DashboardPage() {
                   <input value={editData.description ?? tx.description} onChange={e => setEditData({ ...editData, description: e.target.value })} className="bg-gray-800 text-white p-1 rounded w-full" />
                 ) : (tx.description || '-')}</td>
                 <td className="p-3">{editId === tx.id ? (
-                  <input type="number" value={editData.amount ?? tx.amount} onChange={e => setEditData({ ...editData, amount: e.target.value })} className="bg-gray-800 text-white p-1 rounded w-full" />
+                    <input type="number" value={editData.amount ?? tx.amount} onChange={e => setEditData({ ...editData, amount: Number(e.target.value) })} className="bg-gray-800 text-white p-1 rounded w-full" />
                 ) : (
                   <span>
                     Rp {tx.amount}
@@ -466,13 +483,13 @@ export default function DashboardPage() {
                 <td className="p-3">
                   {editId === tx.id ? (
                     <>
-                      <button className="bg-blue-600 text-white px-2 py-1 rounded mr-2" onClick={() => handleEdit(tx.id)} disabled={loading}>Simpan</button>
+                        <button className="bg-blue-600 text-white px-2 py-1 rounded mr-2" onClick={() => handleEdit(tx.id ?? "")} disabled={loading}>Simpan</button>
                       <button className="bg-gray-600 text-white px-2 py-1 rounded" onClick={() => { setEditId(null); setEditData({}); }} disabled={loading}>Batal</button>
                     </>
                   ) : (
                     <>
-                      <button className="bg-yellow-600 text-white px-2 py-1 rounded mr-2" onClick={() => { setEditId(tx.id); setEditData(tx); }} disabled={loading}>Edit</button>
-                      <button className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => handleDelete(tx.id)} disabled={loading}>Delete</button>
+                        <button className="bg-yellow-600 text-white px-2 py-1 rounded mr-2" onClick={() => { setEditId(tx.id ?? ""); setEditData(tx); }} disabled={loading}>Edit</button>
+                        <button className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => handleDelete(tx.id ?? "")} disabled={loading}>Delete</button>
                     </>
                   )}
                 </td>
