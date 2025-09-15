@@ -426,18 +426,50 @@ export default function DashboardPage() {
       </div>
       {/* Filter by month dan tabel transaksi */}
       <div className="w-full bg-gray-950 rounded-xl shadow-lg p-4 mt-8 overflow-x-auto">
-        <div className="mb-4 flex flex-col md:flex-row items-center gap-2">
-          <label className="text-white text-sm">Filter Bulan:</label>
-          <select
-            value={selectedMonth}
-            onChange={e => setSelectedMonth(e.target.value)}
-            className="p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <div className="mb-4 flex flex-col md:flex-row items-center gap-2 justify-between">
+          <div className="flex items-center gap-2">
+            <label className="text-white text-sm">Filter Bulan:</label>
+            <select
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              className="p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Semua Bulan</option>
+              {months.map((m) => (
+                <option key={m} value={m}>{formatMonth(m)}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm transition duration-200"
+            onClick={() => {
+              const csvRows = [
+                ["Tanggal", "Kategori", "Deskripsi", "Nominal", "Jenis"],
+                ...filteredTransactions.map(tx => [
+                  tx.date,
+                  tx.category,
+                  tx.description || "",
+                  tx.amount,
+                  tx.type
+                ])
+              ];
+              const csvContent = csvRows.map(row => row.map(String).map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+              const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              const now = new Date();
+              const pad = (n: number) => n.toString().padStart(2, "0");
+              const filename = `transaksi-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
+              a.href = url;
+              a.download = filename;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }}
           >
-            <option value="">Semua Bulan</option>
-            {months.map((m) => (
-              <option key={m} value={m}>{formatMonth(m)}</option>
-            ))}
-          </select>
+            Download CSV
+          </button>
         </div>
         <table className="w-full text-sm">
           <thead>
