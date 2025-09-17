@@ -26,7 +26,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 p-4">
+      <h1 className="text-4xl font-extrabold mb-4 text-white text-center drop-shadow-lg">Selamat Datang di Uang Sakti</h1>
       <form
         onSubmit={handleLogin}
         className="bg-gray-950 p-8 rounded-xl shadow-lg w-full max-w-sm"
