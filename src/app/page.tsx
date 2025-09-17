@@ -218,15 +218,12 @@ export default function HomePage() {
   }, [sidebarHidden]);
   const [refreshCategories, setRefreshCategories] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState("");
 
   useEffect(() => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
       if (!data?.user?.id) {
         window.location.href = "/login";
-      } else {
-        setUserId(data.user.id);
       }
       setLoading(false);
     };

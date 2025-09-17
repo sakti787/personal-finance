@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 type Transaction = {
   id?: string;
@@ -12,12 +13,7 @@ type Transaction = {
   bukti_url?: string;
 };
 
-type Category = {
-  id?: string;
-  name: string;
-  type: "Pengeluaran" | "Pemasukan";
-  user_id?: string;
-};
+
 import { supabase, getUser } from "@/lib/supabaseClient";
 import TransactionForm from "@/components/TransactionForm";
 import Sidebar from "@/components/Sidebar";
@@ -55,8 +51,7 @@ export default function DashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [summaryMonth, setSummaryMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [loadingUser, setLoadingUser] = useState(true);
-  const [userId, setUserId] = useState("");
-  const [nama, setNama] = useState("");
+  
 
   const allMonths = [...new Set(transactions.map(tx => tx.date.slice(0, 7)))].sort();
 
@@ -112,8 +107,7 @@ export default function DashboardPage() {
   const kategoriLabels = Object.keys(kategoriData);
   const kategoriValues = kategoriLabels.map((k) => kategoriData[k]);
 
-  // Grafik: total bulanan
-  const totalBulanan = months.map((m) => pemasukanPerBulan[months.indexOf(m)] - pengeluaranPerBulan[months.indexOf(m)]);
+  
 
   useEffect(() => {
       const checkAuthAndFetch = async () => {
@@ -166,11 +160,6 @@ export default function DashboardPage() {
         const { data } = await supabase.auth.getUser();
         if (!data?.user?.id) {
           window.location.href = "/login";
-        } else {
-          setUserId(data.user.id);
-          // Ambil nama dari tabel profiles
-          const { data: profile } = await supabase.from("profiles").select("nama").eq("id", data.user.id).single();
-          setNama(profile?.nama || "");
         }
         setLoadingUser(false);
       };
@@ -450,7 +439,7 @@ export default function DashboardPage() {
                 <td className="p-3">
                   {tx.bukti_url ? (
                     <a href={tx.bukti_url} target="_blank" rel="noopener noreferrer">
-                      <img src={tx.bukti_url} alt="Bukti" className="max-h-12 max-w-20 rounded shadow border border-gray-700" />
+                      <Image src={tx.bukti_url} alt="Bukti" width={80} height={48} className="max-h-12 max-w-20 rounded shadow border border-gray-700" />
                     </a>
                   ) : (
                     <span className="text-gray-500">-</span>

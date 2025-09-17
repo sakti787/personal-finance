@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { compressImage } from "@/lib/imageCompress";
 
@@ -92,8 +93,12 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
         setSuccess("Transaksi berhasil ditambahkan!");
         if (onSuccess) onSuccess();
       }
-    } catch (err: any) {
-      setError(err.message || "Terjadi kesalahan saat upload bukti");
+    } catch (err) {
+      let message = "Terjadi kesalahan saat upload bukti";
+      if (err instanceof Error) {
+        message = err.message;
+      }
+      setError(message);
     }
     setLoading(false);
   };
@@ -165,7 +170,7 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
           />
         </label>
         {buktiUrl && (
-          <img src={buktiUrl} alt="Bukti" className="mt-2 max-h-32 rounded" />
+          <Image src={buktiUrl} alt="Bukti" width={128} height={128} className="mt-2 max-h-32 rounded" />
         )}
       </div>
       {error && <p className="text-red-500 mb-3 text-sm">{error}</p>}
