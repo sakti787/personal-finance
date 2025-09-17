@@ -141,6 +141,7 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
       <div className="mb-3">
         <input
           type="text"
+          inputMode="numeric"
           placeholder="Nominal"
           value={formatRupiah(amount)}
           onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
