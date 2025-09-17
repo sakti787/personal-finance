@@ -9,6 +9,7 @@ type Transaction = {
   description?: string;
   user_id: string;
   type: "Pengeluaran" | "Pemasukan";
+  bukti_url?: string;
 };
 
 type Category = {
@@ -20,32 +21,44 @@ type Category = {
 import { supabase, getUser } from "@/lib/supabaseClient";
 import TransactionForm from "@/components/TransactionForm";
 import Sidebar from "@/components/Sidebar";
-import { Line, Pie, Bar } from "react-chartjs-2";
+import { Pie, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
-  LineElement,
   BarElement,
   ArcElement,
   Tooltip,
   Legend,
 } from "chart.js";
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, BarElement, ArcElement, Tooltip, Legend);
 
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarHidden, setSidebarHidden] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(true);
+
+  useEffect(() => {
+    const storedSidebarState = localStorage.getItem("sidebarHidden");
+    if (storedSidebarState !== null) {
+      setSidebarHidden(JSON.parse(storedSidebarState));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("sidebarHidden", JSON.stringify(sidebarHidden));
+  }, [sidebarHidden]);
   const [editId, setEditId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<Transaction>>({});
   const [categories, setCategories] = useState<string[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [summaryMonth, setSummaryMonth] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [summaryMonth, setSummaryMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [loadingUser, setLoadingUser] = useState(true);
   const [userId, setUserId] = useState("");
   const [nama, setNama] = useState("");
+
+  const allMonths = [...new Set(transactions.map(tx => tx.date.slice(0, 7)))].sort();
 
   // Format bulan ke nama
   const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -81,7 +94,7 @@ export default function DashboardPage() {
   // Grafik: data bulanan
   type MonthlyAgg = { pemasukan: number; pengeluaran: number };
   const monthlyData: Record<string, MonthlyAgg> = {};
-  transactions.forEach((tx) => {
+  summaryTransactions.forEach((tx) => {
     const month = tx.date?.slice(0, 7) || "";
     if (!monthlyData[month]) monthlyData[month] = { pemasukan: 0, pengeluaran: 0 };
     if (tx.type === "Pemasukan") monthlyData[month].pemasukan += Number(tx.amount);
@@ -93,7 +106,7 @@ export default function DashboardPage() {
 
   // Grafik: komposisi kategori
   const kategoriData: Record<string, number> = {};
-  transactions.forEach((tx) => {
+  summaryTransactions.forEach((tx) => {
     kategoriData[tx.category] = (kategoriData[tx.category] || 0) + Number(tx.amount);
   });
   const kategoriLabels = Object.keys(kategoriData);
@@ -191,7 +204,7 @@ export default function DashboardPage() {
                 className="p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Semua Bulan</option>
-                {months.map((m) => (
+                {allMonths.map((m) => (
                   <option key={m} value={m}>{formatMonth(m)}</option>
                 ))}
               </select>
@@ -219,76 +232,7 @@ export default function DashboardPage() {
         </div>
         {/* Grafik */}
         <div className="flex-1 flex flex-col gap-6">
-          <div className="bg-gray-900 rounded-xl p-4 shadow flex flex-col items-center md:max-w-[350px] md:mx-auto">
-            <div className="font-bold mb-2 text-white text-center">Grafik Pemasukan & Pengeluaran per Bulan</div>
-            <div className="w-full h-[240px] md:h-[280px]">
-              <Line
-                data={{
-                  labels: months.map(m => formatMonth(m)),
-                  datasets: [
-                    {
-                      label: "Pemasukan",
-                      data: pemasukanPerBulan,
-                      borderColor: "#22c55e",
-                      backgroundColor: "rgba(34,197,94,0.3)",
-                      tension: 0.4,
-                      fill: true,
-                      pointBackgroundColor: "#22c55e",
-                      pointRadius: 5,
-                      pointBorderWidth: 2,
-                    },
-                    {
-                      label: "Pengeluaran",
-                      data: pengeluaranPerBulan,
-                      borderColor: "#ef4444",
-                      backgroundColor: "rgba(239,68,68,0.3)",
-                      tension: 0.4,
-                      fill: true,
-                      pointBackgroundColor: "#ef4444",
-                      pointRadius: 5,
-                      pointBorderWidth: 2,
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      labels: { color: "#fff", font: { size: 13, weight: "bold" } },
-                      position: "top",
-                    },
-                    tooltip: {
-                      callbacks: {
-                        label: function(context) {
-                          return `${context.dataset.label}: Rp ${context.parsed.y.toLocaleString()}`;
-                        }
-                      },
-                      backgroundColor: "#222",
-                      titleColor: "#fff",
-                      bodyColor: "#fff",
-                      borderColor: "#22c55e",
-                      borderWidth: 1,
-                    },
-                  },
-                  animation: {
-                    duration: 1500,
-                    easing: "easeOutCubic",
-                  },
-                  scales: {
-                    x: {
-                      ticks: { color: "#fff", font: { size: 12 } },
-                      grid: { color: "#333" },
-                    },
-                    y: {
-                      ticks: { color: "#fff", font: { size: 12 } },
-                      grid: { color: "#333" },
-                    },
-                  },
-                }}
-              />
-            </div>
-          </div>
+          
           <div className="bg-gray-900 rounded-xl p-4 shadow flex flex-col items-center md:max-w-[350px] md:mx-auto">
             <div className="font-bold mb-2 text-white text-center">Komposisi Kategori</div>
             <div className="w-full h-[240px] md:h-[280px]">
@@ -435,7 +379,7 @@ export default function DashboardPage() {
               className="p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Semua Bulan</option>
-              {months.map((m) => (
+              {allMonths.map((m) => (
                 <option key={m} value={m}>{formatMonth(m)}</option>
               ))}
             </select>
@@ -477,6 +421,7 @@ export default function DashboardPage() {
               <th className="p-3">Tanggal</th>
               <th className="p-3">Kategori</th>
               <th className="p-3">Deskripsi</th>
+              <th className="p-3">Bukti</th>
               <th className="p-3">Nominal</th>
               <th className="p-3">Aksi</th>
             </tr>
@@ -502,6 +447,15 @@ export default function DashboardPage() {
                 <td className="p-3">{editId === tx.id ? (
                   <input value={editData.description ?? tx.description} onChange={e => setEditData({ ...editData, description: e.target.value })} className="bg-gray-800 text-white p-1 rounded w-full" />
                 ) : (tx.description || '-')}</td>
+                <td className="p-3">
+                  {tx.bukti_url ? (
+                    <a href={tx.bukti_url} target="_blank" rel="noopener noreferrer">
+                      <img src={tx.bukti_url} alt="Bukti" className="max-h-12 max-w-20 rounded shadow border border-gray-700" />
+                    </a>
+                  ) : (
+                    <span className="text-gray-500">-</span>
+                  )}
+                </td>
                 <td className="p-3">{editId === tx.id ? (
                     <input type="number" value={editData.amount ?? tx.amount} onChange={e => setEditData({ ...editData, amount: Number(e.target.value) })} className="bg-gray-800 text-white p-1 rounded w-full" />
                 ) : (

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { compressImage } from "@/lib/imageCompress";
 
 export default function TransactionForm({ refreshCategories, onSuccess }: { refreshCategories?: number; onSuccess?: () => void }) {
   const [date, setDate] = useState("");
@@ -10,6 +11,8 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [bukti, setBukti] = useState<File|null>(null);
+  const [buktiUrl, setBuktiUrl] = useState<string>("");
   type Category = {
     id?: string;
     name: string;
@@ -47,23 +50,50 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
     setLoading(true);
     setError("");
     setSuccess("");
-    if (!userId) {
-      setError("User belum login");
-      setLoading(false);
-      return;
-    }
-    const { error } = await supabase.from("transactions").insert([
-      { date, category, amount: Number(amount), description, user_id: userId, type },
-    ]);
-    if (error) setError(error.message);
-    else {
-      setDate("");
-      setCategory("");
-      setAmount("");
-      setDescription("");
-      setType("Pengeluaran");
-      setSuccess("Transaksi berhasil ditambahkan!");
-      if (onSuccess) onSuccess();
+    let uploadedUrl = "";
+    try {
+      if (bukti) {
+        // Kompres gambar
+        const compressed = await compressImage(bukti);
+        // Upload ke Cloudinary
+        const formData = new FormData();
+        formData.append("file", compressed);
+        formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.secure_url) {
+          uploadedUrl = data.secure_url;
+          setBuktiUrl(uploadedUrl);
+        } else {
+          throw new Error("Gagal upload ke Cloudinary");
+        }
+      }
+      if (!userId) {
+        setError("User belum login");
+        setLoading(false);
+        return;
+      }
+      const { error } = await supabase.from("transactions").insert([
+        { date, category, amount: Number(amount), description, user_id: userId, type, bukti_url: uploadedUrl },
+      ]);
+      if (error) setError(error.message);
+      else {
+        setDate("");
+        setCategory("");
+        setAmount("");
+        setDescription("");
+        setType("Pengeluaran");
+        setBukti(null);
+        setBuktiUrl("");
+        setSuccess("Transaksi berhasil ditambahkan!");
+        if (onSuccess) onSuccess();
+      }
+    } catch (err: any) {
+      setError(err.message || "Terjadi kesalahan saat upload bukti");
     }
     setLoading(false);
   };
@@ -121,6 +151,22 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
           onChange={(e) => setDescription(e.target.value)}
           className="w-full p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+      </div>
+      <div className="mb-3">
+        <label className="w-full p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center cursor-pointer">
+          <span>{bukti ? bukti.name : "Upload Bukti (opsional)"}</span>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={e => {
+              if (e.target.files && e.target.files[0]) setBukti(e.target.files[0]);
+            }}
+            className="hidden"
+          />
+        </label>
+        {buktiUrl && (
+          <img src={buktiUrl} alt="Bukti" className="mt-2 max-h-32 rounded" />
+        )}
       </div>
       {error && <p className="text-red-500 mb-3 text-sm">{error}</p>}
       {success && <p className="text-green-500 mb-3 text-sm">{success}</p>}

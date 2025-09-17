@@ -204,7 +204,18 @@ function CategoryTable({ refresh }: { refresh: number }) {
 }
 
 export default function HomePage() {
-  const [sidebarHidden, setSidebarHidden] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(true);
+
+  useEffect(() => {
+    const storedSidebarState = localStorage.getItem("sidebarHidden");
+    if (storedSidebarState !== null) {
+      setSidebarHidden(JSON.parse(storedSidebarState));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("sidebarHidden", JSON.stringify(sidebarHidden));
+  }, [sidebarHidden]);
   const [refreshCategories, setRefreshCategories] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
