@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { Button, Card, Input, ThemeWrapper } from "@/components/ui";
+import { motion } from "framer-motion";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -20,51 +21,70 @@ export default function LoginPage() {
       email,
       password,
     });
-  if (error) setError(error.message);
-  else router.push("/");
+    if (error) setError(error.message);
+    else router.push("/");
     setLoading(false);
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 p-4">
-      <h1 className="text-4xl font-extrabold mb-4 text-white text-center drop-shadow-lg">Selamat Datang di Uang Sakti</h1>
-      <form
-        onSubmit={handleLogin}
-        className="bg-gray-950 p-8 rounded-xl shadow-lg w-full max-w-sm"
-      >
-        <h2 className="text-2xl font-bold mb-6 text-white text-center">Login</h2>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-        <button
-          type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded transition duration-200"
-          disabled={loading}
+    <ThemeWrapper>
+      <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md space-y-8"
         >
-          {loading ? "Loading..." : "Login"}
-        </button>
-          <button
-            type="button"
-            className="w-full mt-4 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded transition duration-200"
-            onClick={() => router.push("/register")}
-          >
-            Register
-          </button>
-      </form>
-    </div>
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-extrabold tracking-tight">
+              Selamat Datang di Uang Sakti
+            </h1>
+            <p className="text-muted">
+              Masuk untuk mulai mengelola keuangan Anda
+            </p>
+          </div>
+
+          <Card className="p-8">
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-4">
+                <Input
+                  type="email"
+                  label="Email"
+                  placeholder="nama@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+
+                <Input
+                  type="password"
+                  label="Password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  error={error || undefined}
+                  required
+                />
+              </div>
+
+              <div className="space-y-4">
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? "Memproses..." : "Masuk"}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => router.push("/register")}
+                  className="w-full"
+                >
+                  Daftar Akun Baru
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </motion.div>
+      </div>
+    </ThemeWrapper>
   );
 }
