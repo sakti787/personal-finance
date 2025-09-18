@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { Button, Card, Input, ThemeWrapper } from "@/components/ui";
+import { motion } from "framer-motion";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -38,46 +40,83 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
-      <form
-        onSubmit={handleRegister}
-        className="bg-gray-950 p-8 rounded-xl shadow-lg w-full max-w-sm"
-      >
-        <h2 className="text-2xl font-bold mb-6 text-white text-center">Register</h2>
-        <input
-          type="text"
-          placeholder="Nama Lengkap"
-          value={nama}
-          onChange={(e) => setNama(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-3 mb-4 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-        {success && <p className="text-green-500 mb-4">{success}</p>}
-        <button
-          type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded transition duration-200"
-          disabled={loading}
+    <ThemeWrapper>
+      <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md space-y-8"
         >
-          {loading ? "Loading..." : "Register"}
-        </button>
-      </form>
-    </div>
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-extrabold tracking-tight">
+              Buat Akun Baru
+            </h1>
+            <p className="text-muted">
+              Isi data diri Anda untuk mulai mengelola keuangan
+            </p>
+          </div>
+
+          <Card className="p-8">
+            <form onSubmit={handleRegister} className="space-y-6">
+              <div className="space-y-4">
+                <Input
+                  type="text"
+                  label="Nama Lengkap"
+                  placeholder="John Doe"
+                  value={nama}
+                  onChange={(e) => setNama(e.target.value)}
+                  required
+                />
+
+                <Input
+                  type="email"
+                  label="Email"
+                  placeholder="nama@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+
+                <Input
+                  type="password"
+                  label="Password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  error={error || undefined}
+                  required
+                />
+
+                {success && (
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-[var(--success)]"
+                  >
+                    {success}
+                  </motion.p>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? "Memproses..." : "Daftar"}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => router.push("/login")}
+                  className="w-full"
+                >
+                  Sudah Punya Akun? Masuk
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </motion.div>
+      </div>
+    </ThemeWrapper>
   );
 }

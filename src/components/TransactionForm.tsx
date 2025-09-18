@@ -23,6 +23,66 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
   const [categories, setCategories] = useState<string[]>([]);
   const [userId, setUserId] = useState<string>("");
   const [type, setType] = useState("Pengeluaran");
+  const [newCategory, setNewCategory] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
+
+  const handleDeleteCategory = async (categoryName: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm(`Yakin ingin menghapus kategori "${categoryName}"?`)) {
+      setDeletingCategory(categoryName);
+      try {
+        const { error } = await supabase
+          .from("categories")
+          .delete()
+          .match({ name: categoryName, type, user_id: userId });
+        
+        if (error) throw error;
+        
+        // Refresh categories
+        const { data } = await supabase.from("categories").select("name, type");
+        const updatedCategories = data ? data
+          .filter((cat: Category) => cat.type === type)
+          .map((cat: Category) => cat.name) : [];
+        setCategories(updatedCategories);
+        
+        // Reset selection if deleted category was selected
+        if (category === categoryName) {
+          setCategory("");
+        }
+        
+        setSuccess("Kategori berhasil dihapus!");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Gagal menghapus kategori");
+      }
+      setDeletingCategory(null);
+    }
+  };
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategory.trim()) return;
+    setAddingCategory(true);
+    try {
+      if (!userId) {
+        throw new Error("User belum login");
+      }
+      const { error } = await supabase.from("categories").insert([
+        { name: newCategory.trim(), type, user_id: userId }
+      ]);
+      if (error) throw error;
+      // Refresh categories dan select kategori baru
+      const { data } = await supabase.from("categories").select("name, type");
+      setCategories(data ? data.filter((cat: Category) => cat.type === type).map((cat: Category) => cat.name) : []);
+      setCategory(newCategory.trim());
+      setNewCategory(""); // Clear input
+      setSuccess("Kategori berhasil ditambahkan!");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menambahkan kategori");
+    }
+    setAddingCategory(false);
+  };
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -104,9 +164,41 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 bg-gray-950 p-4 rounded-lg shadow w-full max-w-xs mx-auto">
+    <form onSubmit={handleSubmit} className="mb-6 bg-gray-950 p-4 rounded-lg shadow w-full max-w-xs mx-auto relative overflow-hidden">
+      {/* Background Waves */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <svg
+          className="absolute inset-0 w-full h-full opacity-[0.15]"
+          viewBox="0 0 1440 320"
+          preserveAspectRatio="none"
+          style={{ transform: 'translateY(20%)' }}
+        >
+          <path
+            d="M0,192 C320,256 420,128 740,192 C1060,256 1380,128 1440,160 V320 H0 Z"
+            fill="rgb(147, 51, 234)"
+            style={{
+              animation: 'wave 25s ease-in-out infinite'
+            }}
+          />
+        </svg>
+        <svg
+          className="absolute inset-0 w-full h-full opacity-[0.1]"
+          viewBox="0 0 1440 320"
+          preserveAspectRatio="none"
+          style={{ transform: 'translateY(25%)' }}
+        >
+          <path
+            d="M0,150 C320,210 420,90 740,150 C1060,210 1380,90 1440,120 V320 H0 Z"
+            fill="rgb(147, 51, 234)"
+            style={{
+              animation: 'wave 30s ease-in-out infinite'
+            }}
+          />
+        </svg>
+      </div>
+      
       <div className="mb-3">
-        <label className="block mb-1 text-sm text-white">Jenis</label>
+        <label className="block mb-4 font-bold text-xl text-white text-center">Tambah Transaksi</label>
         <select
           value={type}
           onChange={e => setType(e.target.value)}
@@ -125,18 +217,53 @@ export default function TransactionForm({ refreshCategories, onSuccess }: { refr
           required
         />
       </div>
-      <div className="mb-3">
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="w-full p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        >
-          <option value="" disabled>Pilih Kategori</option>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
+      <div className="space-y-2 mb-3">
+        {/* Kategori dropdown dan daftar kategori */}
+        <div className="grid grid-cols-[1fr,auto] gap-2">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          >
+            <option value="" disabled>Pilih Kategori</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+          {/* Tombol hapus hanya muncul jika ada kategori yang dipilih */}
+          {category && (
+            <button
+              type="button"
+              onClick={(e) => handleDeleteCategory(category, e)}
+              disabled={deletingCategory === category}
+              className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deletingCategory === category ? "..." : "Hapus"}
+            </button>
+          )}
+        </div>
+        
+        {/* Form tambah kategori baru */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Tambah kategori baru..."
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            className="flex-1 p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="button"
+            onClick={handleAddCategory}
+            disabled={addingCategory || !newCategory.trim()}
+            className="px-3 py-2 bg-purple-600 text-white rounded text-sm font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {addingCategory ? "..." : "Tambah"}
+          </button>
+        </div>
       </div>
       <div className="mb-3">
         <input

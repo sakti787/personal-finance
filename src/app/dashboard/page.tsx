@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { Card, ThemeWrapper, Input, Button } from "@/components/ui";
+import { DashboardChart } from "@/components/DashboardChart";
+import { PieChart } from "@/components/PieChart";
+import BalanceOverview from "@/components/BalanceOverview";
+import { supabase, getUser } from "@/lib/supabaseClient";
+import TransactionForm from "@/components/TransactionForm";
+import Sidebar from "@/components/Sidebar";
 
 type Transaction = {
   id?: string;
@@ -14,26 +21,14 @@ type Transaction = {
 };
 
 
-import { supabase, getUser } from "@/lib/supabaseClient";
-import TransactionForm from "@/components/TransactionForm";
-import Sidebar from "@/components/Sidebar";
-import { Pie, Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  BarElement,
-  ArcElement,
-  Tooltip,
-  Legend,
-} from "chart.js";
-ChartJS.register(CategoryScale, LinearScale, PointElement, BarElement, ArcElement, Tooltip, Legend);
-
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarHidden, setSidebarHidden] = useState(true);
+  const [sortConfig, setSortConfig] = useState<{
+    key: 'date' | 'category' | 'amount' | null;
+    direction: 'asc' | 'desc';
+  }>({ key: null, direction: 'asc' });
 
   useEffect(() => {
     const storedSidebarState = localStorage.getItem("sidebarHidden");
@@ -49,7 +44,6 @@ export default function DashboardPage() {
   const [editData, setEditData] = useState<Partial<Transaction>>({});
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
-  const [summaryMonth, setSummaryMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [loadingUser, setLoadingUser] = useState(true);
   
 
@@ -78,18 +72,10 @@ export default function DashboardPage() {
     ? sortedTransactions.filter((tx) => tx.date?.slice(0, 7) === selectedMonth)
     : sortedTransactions;
 
-  // Filter transaksi untuk keterangan saldo
-  const summaryTransactions = summaryMonth
-    ? transactions.filter((tx) => tx.date?.slice(0, 7) === summaryMonth)
-    : transactions;
-  const totalKredit = summaryTransactions.filter((tx) => tx.type === "Pemasukan").reduce((sum, tx) => sum + Number(tx.amount), 0);
-  const totalDebit = summaryTransactions.filter((tx) => tx.type === "Pengeluaran").reduce((sum, tx) => sum + Number(tx.amount), 0);
-  const sisaSaldo = totalKredit - totalDebit;
-
   // Grafik: data bulanan
   type MonthlyAgg = { pemasukan: number; pengeluaran: number };
   const monthlyData: Record<string, MonthlyAgg> = {};
-  summaryTransactions.forEach((tx) => {
+  filteredTransactions.forEach((tx) => {
     const month = tx.date?.slice(0, 7) || "";
     if (!monthlyData[month]) monthlyData[month] = { pemasukan: 0, pengeluaran: 0 };
     if (tx.type === "Pemasukan") monthlyData[month].pemasukan += Number(tx.amount);
@@ -101,11 +87,13 @@ export default function DashboardPage() {
 
   // Grafik: komposisi kategori
   const kategoriData: Record<string, number> = {};
-  summaryTransactions.forEach((tx) => {
-    kategoriData[tx.category] = (kategoriData[tx.category] || 0) + Number(tx.amount);
+  filteredTransactions.forEach((tx) => {
+    if (tx.type === "Pengeluaran") {
+      kategoriData[tx.category] = (kategoriData[tx.category] || 0) + Number(tx.amount);
+    }
   });
   const kategoriLabels = Object.keys(kategoriData);
-  const kategoriValues = kategoriLabels.map((k) => kategoriData[k]);
+  const kategoriValues = Object.values(kategoriData);
 
   
 
@@ -169,318 +157,284 @@ export default function DashboardPage() {
     if (loadingUser) return <div className="text-center py-20 text-white">Loading...</div>;
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white ${sidebarHidden ? '' : 'pl-60'} flex flex-col min-w-full`}>
-      {/* Sidebar */}
+    <div className={`${sidebarHidden ? '' : 'pl-60'}`}>
       <Sidebar hidden={sidebarHidden} setHidden={setSidebarHidden} />
-      {/* Judul Halaman */}
-      <div className="w-full flex justify-center items-center pt-8 pb-2">
-        <h1 className="text-4xl font-extrabold mb-2 text-center drop-shadow-lg">Dashboard Keuangan</h1>
-      </div>
-      {/* Penjelasan singkat */}
-      <div className="w-full flex justify-center mb-6">
-        <p className="text-gray-300 text-center max-w-xl">Pantau pemasukan, pengeluaran, dan saldo Anda dengan grafik serta tabel transaksi yang responsif di semua perangkat.</p>
-      </div>
-      {/* Konten utama: grid 1 kolom di mobile, 2 kolom di desktop */}
-      <div className="w-full flex flex-col md:flex-row gap-8 justify-center items-start px-2 md:px-8">
-        <div className="flex-1 flex flex-col gap-6">
-          {/* Keterangan Saldo */}
-          <div className="bg-gray-950 rounded-xl shadow-lg p-6 mb-2">
-            <div className="mb-2 flex flex-col md:flex-row items-center gap-2 justify-center">
-              <label className="text-white text-sm">Filter Bulan Saldo:</label>
-              <select
-                value={summaryMonth}
-                onChange={e => setSummaryMonth(e.target.value)}
-                className="p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <ThemeWrapper>
+        <div className="space-y-8">
+          {/* Header */}
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-extrabold tracking-tight">
+              Dashboard Keuangan
+            </h1>
+            <p className="text-muted max-w-xl mx-auto">
+              Pantau pemasukan, pengeluaran, dan saldo Anda dengan grafik serta tabel transaksi yang responsif.
+            </p>
+          </div>
+
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-8">
+              {/* Balance Overview */}
+              <BalanceOverview />
+
+              {/* Form Transaksi */}
+              <Card>
+                <h2 className="text-xl font-bold mb-6">Tambah Transaksi</h2>
+                <TransactionForm onSuccess={refreshTransactions} />
+              </Card>
+            </div>
+
+            {/* Grafik */}
+            <div className="space-y-8">
+              <div className="space-y-8">
+                <DashboardChart
+                  data={months.map((month, index) => ({
+                    month: formatMonth(month),
+                    pemasukan: pemasukanPerBulan[index],
+                    pengeluaran: pengeluaranPerBulan[index],
+                  }))}
+                />
+                <PieChart labels={kategoriLabels} values={kategoriValues} />
+              </div>
+            </div>
+          </div>
+
+          {/* Filter and Table */}
+          <Card className="overflow-x-auto">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+              <div className="flex items-center gap-2">
+                <select
+                  className="px-3 py-2 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={selectedMonth}
+                  onChange={e => setSelectedMonth(e.target.value)}
+                >
+                  <option value="">Semua Bulan</option>
+                  {allMonths.map((m) => (
+                    <option key={m} value={m}>{formatMonth(m)}</option>
+                  ))}
+                </select>
+              </div>
+
+              <h2 className="text-xl font-bold m-0">Tabel Transaksi</h2>
+
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const csvRows = [
+                    ["Tanggal", "Kategori", "Deskripsi", "Nominal", "Jenis"],
+                    ...filteredTransactions.map(tx => [
+                      tx.date,
+                      tx.category,
+                      tx.description || "",
+                      tx.amount,
+                      tx.type
+                    ])
+                  ];
+                  const csvContent = csvRows.map(row => row.map(String).map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+                  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  const now = new Date();
+                  const pad = (n: number) => n.toString().padStart(2, "0");
+                  const filename = `transaksi-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
+                  a.href = url;
+                  a.download = filename;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
               >
-                <option value="">Semua Bulan</option>
-                {allMonths.map((m) => (
-                  <option key={m} value={m}>{formatMonth(m)}</option>
-                ))}
-              </select>
+                Download CSV
+              </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-              <div className="bg-gray-900 rounded-lg px-6 py-4 text-center shadow">
-                <div className="text-sm text-gray-400 mb-1">Sisa Saldo</div>
-                <div className="text-2xl font-bold text-green-400">Rp {sisaSaldo.toLocaleString()}</div>
-              </div>
-              <div className="bg-gray-900 rounded-lg px-6 py-4 text-center shadow">
-                <div className="text-sm text-gray-400 mb-1">Kredit (Pemasukan)</div>
-                <div className="text-xl font-bold text-green-500">Rp {totalKredit.toLocaleString()}</div>
-              </div>
-              <div className="bg-gray-900 rounded-lg px-6 py-4 text-center shadow">
-                <div className="text-sm text-gray-400 mb-1">Debit (Pengeluaran)</div>
-                <div className="text-xl font-bold text-red-500">Rp {totalDebit.toLocaleString()}</div>
-              </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--border)]">
+                    <th 
+                      className="py-3 text-left cursor-pointer hover:text-blue-400 transition-colors"
+                      onClick={() => {
+                        setSortConfig({
+                          key: 'date',
+                          direction: sortConfig.key === 'date' && sortConfig.direction === 'asc' ? 'desc' : 'asc'
+                        });
+                      }}
+                    >
+                      Tanggal {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th 
+                      className="py-3 text-left cursor-pointer hover:text-blue-400 transition-colors"
+                      onClick={() => {
+                        setSortConfig({
+                          key: 'category',
+                          direction: sortConfig.key === 'category' && sortConfig.direction === 'asc' ? 'desc' : 'asc'
+                        });
+                      }}
+                    >
+                      Kategori {sortConfig.key === 'category' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="py-3 text-left">Deskripsi</th>
+                    <th className="py-3 text-left">Bukti</th>
+                    <th 
+                      className="py-3 text-left cursor-pointer hover:text-blue-400 transition-colors"
+                      onClick={() => {
+                        setSortConfig({
+                          key: 'amount',
+                          direction: sortConfig.key === 'amount' && sortConfig.direction === 'asc' ? 'desc' : 'asc'
+                        });
+                      }}
+                    >
+                      Nominal {sortConfig.key === 'amount' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="py-3 text-left">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border)]">
+                  {filteredTransactions
+                    .sort((a, b) => {
+                      if (!sortConfig.key) return 0;
+                      
+                      let comparison = 0;
+                      if (sortConfig.key === 'date') {
+                        comparison = a.date.localeCompare(b.date);
+                      } else if (sortConfig.key === 'category') {
+                        comparison = a.category.localeCompare(b.category);
+                      } else if (sortConfig.key === 'amount') {
+                        comparison = a.amount - b.amount;
+                      }
+                      
+                      return sortConfig.direction === 'asc' ? comparison : -comparison;
+                    })
+                    .map((tx) => (
+                    <tr key={tx.id}>
+                      <td className="py-3">
+                        {editId === tx.id ? (
+                          <Input
+                            type="date"
+                            value={editData.date ?? tx.date}
+                            onChange={e => setEditData({ ...editData, date: e.target.value })}
+                          />
+                        ) : (
+                          formatTanggal(tx.date)
+                        )}
+                      </td>
+                      <td className="py-3">
+                        {editId === tx.id ? (
+                          <Input
+                            as="select"
+                            value={editData.category ?? tx.category}
+                            onChange={e => setEditData({ ...editData, category: e.target.value })}
+                          >
+                            <option value="" disabled>Pilih Kategori</option>
+                            {categories.map((cat) => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </Input>
+                        ) : (
+                          tx.category
+                        )}
+                      </td>
+                      <td className="py-3">
+                        {editId === tx.id ? (
+                          <Input
+                            value={editData.description ?? tx.description}
+                            onChange={e => setEditData({ ...editData, description: e.target.value })}
+                          />
+                        ) : (
+                          tx.description || "-"
+                        )}
+                      </td>
+                      <td className="py-3">
+                        {tx.bukti_url ? (
+                          <a href={tx.bukti_url} target="_blank" rel="noopener noreferrer">
+                            <Image
+                              src={tx.bukti_url}
+                              alt="Bukti"
+                              width={80}
+                              height={48}
+                              className="max-h-12 rounded-md border border-[var(--border)] shadow-sm"
+                            />
+                          </a>
+                        ) : (
+                          <span className="text-muted">-</span>
+                        )}
+                      </td>
+                      <td className="py-3">
+                        {editId === tx.id ? (
+                          <Input
+                            type="number"
+                            value={editData.amount ?? tx.amount}
+                            onChange={e => setEditData({ ...editData, amount: Number(e.target.value) })}
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span>Rp {tx.amount.toLocaleString()}</span>
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                tx.type === "Pemasukan"
+                                  ? "bg-[var(--success)]/10 text-[var(--success)]"
+                                  : "bg-[var(--danger)]/10 text-[var(--danger)]"
+                              }`}
+                            >
+                              {tx.type}
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3">
+                        <div className="flex gap-2">
+                          {editId === tx.id ? (
+                            <>
+                              <Button
+                                onClick={() => handleEdit(tx.id ?? "")}
+                                disabled={loading}
+                              >
+                                Simpan
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                onClick={() => {
+                                  setEditId(null);
+                                  setEditData({});
+                                }}
+                                disabled={loading}
+                              >
+                                Batal
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                variant="secondary"
+                                onClick={() => {
+                                  setEditId(tx.id ?? "");
+                                  setEditData(tx);
+                                }}
+                                disabled={loading}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="danger"
+                                onClick={() => handleDelete(tx.id ?? "")}
+                                disabled={loading}
+                              >
+                                Delete
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-          {/* Form Transaksi */}
-          <div className="bg-gray-950 rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-bold mb-4 text-white text-center">Tambah Transaksi</h2>
-            <TransactionForm onSuccess={refreshTransactions} />
-          </div>
+          </Card>
         </div>
-        {/* Grafik */}
-        <div className="flex-1 flex flex-col gap-6">
-          
-          <div className="bg-gray-900 rounded-xl p-4 shadow flex flex-col items-center md:max-w-[350px] md:mx-auto">
-            <div className="font-bold mb-2 text-white text-center">Komposisi Kategori</div>
-            <div className="w-full h-[240px] md:h-[280px]">
-              <Pie
-                data={{
-                  labels: kategoriLabels,
-                  datasets: [
-                    {
-                      data: kategoriValues,
-                      backgroundColor: [
-                        "rgba(34,197,94,0.8)",
-                        "rgba(239,68,68,0.8)",
-                        "rgba(59,130,246,0.8)",
-                        "rgba(234,179,8,0.8)",
-                        "rgba(162,28,175,0.8)",
-                        "rgba(245,158,66,0.8)"
-                      ],
-                      borderColor: [
-                        "#22c55e",
-                        "#ef4444",
-                        "#3b82f6",
-                        "#eab308",
-                        "#a21caf",
-                        "#f59e42"
-                      ],
-                      borderWidth: 2,
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      labels: { color: "#fff", font: { size: 13, weight: "bold" } },
-                      position: "top",
-                    },
-                    tooltip: {
-                      callbacks: {
-                        label: function(context) {
-                          return `${context.label}: Rp ${context.parsed.toLocaleString()}`;
-                        }
-                      },
-                      backgroundColor: "#222",
-                      titleColor: "#fff",
-                      bodyColor: "#fff",
-                      borderColor: "#22c55e",
-                      borderWidth: 1,
-                    },
-                  },
-                  animation: {
-                    animateScale: true,
-                    duration: 1500,
-                    easing: "easeOutCubic",
-                  },
-                }}
-              />
-            </div>
-          </div>
-          <div className="bg-gray-900 rounded-xl p-4 shadow flex flex-col items-center md:max-w-[400px] md:mx-auto">
-            <div className="font-bold mb-2 text-white text-center">Perbandingan Pemasukan vs Pengeluaran per Bulan</div>
-            <div className="w-full h-[240px] md:h-[280px]">
-              <Bar
-                data={{
-                  labels: months.map(m => formatMonth(m)),
-                  datasets: [
-                    {
-                      label: "Pemasukan",
-                      data: pemasukanPerBulan,
-                      backgroundColor: (ctx) => {
-                        const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 260);
-                        gradient.addColorStop(0, "#4ade80");
-                        gradient.addColorStop(1, "#22c55e");
-                        return gradient;
-                      },
-                      borderRadius: 8,
-                      barPercentage: 0.6,
-                      categoryPercentage: 0.5,
-                    },
-                    {
-                      label: "Pengeluaran",
-                      data: pengeluaranPerBulan,
-                      backgroundColor: (ctx) => {
-                        const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 260);
-                        gradient.addColorStop(0, "#f87171");
-                        gradient.addColorStop(1, "#ef4444");
-                        return gradient;
-                      },
-                      borderRadius: 8,
-                      barPercentage: 0.6,
-                      categoryPercentage: 0.5,
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      labels: { color: "#fff", font: { size: 13, weight: "bold" } },
-                      position: "top",
-                    },
-                    tooltip: {
-                      callbacks: {
-                        label: function(context) {
-                          return `${context.dataset.label}: Rp ${context.parsed.y.toLocaleString()}`;
-                        }
-                      },
-                      backgroundColor: "#222",
-                      titleColor: "#fff",
-                      bodyColor: "#fff",
-                      borderColor: "#22c55e",
-                      borderWidth: 1,
-                    },
-                  },
-                  animation: {
-                    duration: 1500,
-                    easing: "easeOutCubic",
-                  },
-                  scales: {
-                    x: {
-                      ticks: { color: "#fff", font: { size: 12 } },
-                      grid: { color: "#333" },
-                    },
-                    y: {
-                      ticks: { color: "#fff", font: { size: 12 } },
-                      grid: { color: "#333" },
-                    },
-                  },
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* Filter by month dan tabel transaksi */}
-      <div className="w-full bg-gray-950 rounded-xl shadow-lg p-4 mt-8 overflow-x-auto">
-        <div className="mb-4 flex flex-col md:flex-row items-center gap-2 justify-between">
-          <div className="flex items-center gap-2">
-            <label className="text-white text-sm">Filter Bulan:</label>
-            <select
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              className="p-2 rounded bg-gray-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua Bulan</option>
-              {allMonths.map((m) => (
-                <option key={m} value={m}>{formatMonth(m)}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm transition duration-200"
-            onClick={() => {
-              const csvRows = [
-                ["Tanggal", "Kategori", "Deskripsi", "Nominal", "Jenis"],
-                ...filteredTransactions.map(tx => [
-                  tx.date,
-                  tx.category,
-                  tx.description || "",
-                  tx.amount,
-                  tx.type
-                ])
-              ];
-              const csvContent = csvRows.map(row => row.map(String).map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
-              const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              const now = new Date();
-              const pad = (n: number) => n.toString().padStart(2, "0");
-              const filename = `transaksi-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
-              a.href = url;
-              a.download = filename;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
-            }}
-          >
-            Download CSV
-          </button>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className="p-3">Tanggal</th>
-              <th className="p-3">Kategori</th>
-              <th className="p-3">Deskripsi</th>
-              <th className="p-3">Bukti</th>
-              <th className="p-3">Nominal</th>
-              <th className="p-3">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTransactions.map((tx) => (
-              <tr key={tx.id} className="border-b border-gray-800">
-                <td className="p-3">{editId === tx.id ? (
-                  <input type="date" value={editData.date ?? tx.date} onChange={e => setEditData({ ...editData, date: e.target.value })} className="bg-gray-800 text-white p-1 rounded w-full" />
-                ) : formatTanggal(tx.date)}</td>
-                <td className="p-3">{editId === tx.id ? (
-                  <select
-                    value={editData.category ?? tx.category}
-                    onChange={e => setEditData({ ...editData, category: e.target.value })}
-                    className="bg-gray-800 text-white p-1 rounded w-full"
-                  >
-                    <option value="" disabled>Pilih Kategori</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                ) : tx.category}</td>
-                <td className="p-3">{editId === tx.id ? (
-                  <input value={editData.description ?? tx.description} onChange={e => setEditData({ ...editData, description: e.target.value })} className="bg-gray-800 text-white p-1 rounded w-full" />
-                ) : (tx.description || '-')}</td>
-                <td className="p-3">
-                  {tx.bukti_url ? (
-                    <a href={tx.bukti_url} target="_blank" rel="noopener noreferrer">
-                      <Image src={tx.bukti_url} alt="Bukti" width={80} height={48} className="max-h-12 max-w-20 rounded shadow border border-gray-700" />
-                    </a>
-                  ) : (
-                    <span className="text-gray-500">-</span>
-                  )}
-                </td>
-                <td className="p-3">{editId === tx.id ? (
-                    <input type="number" value={editData.amount ?? tx.amount} onChange={e => setEditData({ ...editData, amount: Number(e.target.value) })} className="bg-gray-800 text-white p-1 rounded w-full" />
-                ) : (
-                  <span>
-                    Rp {tx.amount}
-                    {tx.type === "Pemasukan" ? (
-                      <span className="ml-2 px-2 py-1 rounded bg-green-600 text-white text-xs font-bold">Pemasukan</span>
-                    ) : (
-                      <span className="ml-2 px-2 py-1 rounded bg-red-600 text-white text-xs font-bold">Pengeluaran</span>
-                    )}
-                  </span>
-                )}</td>
-                <td className="p-3">
-                  {editId === tx.id ? (
-                    <>
-                        <button className="bg-blue-600 text-white px-2 py-1 rounded mr-2" onClick={() => handleEdit(tx.id ?? "")} disabled={loading}>Simpan</button>
-                      <button className="bg-gray-600 text-white px-2 py-1 rounded" onClick={() => { setEditId(null); setEditData({}); }} disabled={loading}>Batal</button>
-                    </>
-                  ) : (
-                    <>
-                        <button className="bg-yellow-600 text-white px-2 py-1 rounded mr-2" onClick={() => { setEditId(tx.id ?? ""); setEditData(tx); }} disabled={loading}>Edit</button>
-                        <button className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => handleDelete(tx.id ?? "")} disabled={loading}>Delete</button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {/* Catatan UI: Penjelasan perbaikan */}
-      <div className="w-full flex justify-center mt-8">
-        <div className="bg-gray-900 rounded-lg p-4 text-gray-400 text-sm max-w-lg text-center">
-          <p>Halaman dashboard telah dirapikan agar responsif di perangkat mobile dan desktop, dengan tata letak grid/flex, card style konsisten, judul section, dan penjelasan singkat.</p>
-        </div>
-      </div>
+      </ThemeWrapper>
     </div>
   );
 }
