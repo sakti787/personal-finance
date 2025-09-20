@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 export default function HomePage() {
   const [sidebarHidden, setSidebarHidden] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState("all");
 
   useEffect(() => {
     const storedSidebarState = localStorage.getItem("sidebarHidden");
@@ -47,7 +48,7 @@ export default function HomePage() {
               </p>
             </div>
             
-            <BalanceOverview />
+            <BalanceOverview selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
             
             <div className="max-w-xl mx-auto p-6 mb-6">
               <TransactionForm />
