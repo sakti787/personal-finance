@@ -284,6 +284,7 @@ export const DashboardChart = ({ data, onChartClick }: ChartProps) => {
               },
               yaxis: {
                 labels: {
+                  formatter: (value: number) => formatCurrency(value),
                   style: {
                     colors: '#ffffff', // Ubah ke putih explicit
                     fontSize: '11px'
@@ -312,6 +313,7 @@ export const DashboardChart = ({ data, onChartClick }: ChartProps) => {
               },
               yaxis: {
                 labels: {
+                  formatter: (value: number) => formatCurrency(value),
                   style: {
                     colors: '#ffffff', // Ubah ke putih explicit
                     fontSize: '10px'
