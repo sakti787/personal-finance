@@ -3,15 +3,13 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function BalanceOverview() {
+interface BalanceOverviewProps {
+  selectedMonth: string;
+  onMonthChange: (month: string) => void;
+}
+
+export default function BalanceOverview({ selectedMonth, onMonthChange }: BalanceOverviewProps) {
   const [loading, setLoading] = useState(true);
-  // Set default bulan ke bulan saat ini
-  const getCurrentMonth = () => {
-    const date = new Date();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0'); // +1 karena getMonth() dimulai dari 0
-    return month;
-  };
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [balance, setBalance] = useState({
     total: 0,
     income: 0,
@@ -120,7 +118,7 @@ export default function BalanceOverview() {
       <div className="flex justify-center mb-4">
         <select
           value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
+          onChange={(e) => onMonthChange(e.target.value)}
           className="px-4 py-2 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {months.map((month) => (

@@ -44,6 +44,15 @@ export default function DashboardPage() {
   const [editData, setEditData] = useState<Partial<Transaction>>({});
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  
+  // State untuk filter bulan di BalanceOverview dan PieChart
+  const getCurrentMonth = () => {
+    const date = new Date();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    return month;
+  };
+  const [balanceSelectedMonth, setBalanceSelectedMonth] = useState(getCurrentMonth());
+  
   const [loadingUser, setLoadingUser] = useState(true);
   
 
@@ -72,8 +81,20 @@ export default function DashboardPage() {
     ? sortedTransactions.filter((tx) => tx.date?.slice(0, 7) === selectedMonth)
     : sortedTransactions;
 
-  // Grafik: data bulanan
+  // Grafik: data bulanan (menggunakan semua transaksi tanpa filter)
   type MonthlyAgg = { pemasukan: number; pengeluaran: number };
+  const monthlyDataChart: Record<string, MonthlyAgg> = {};
+  sortedTransactions.forEach((tx) => {
+    const month = tx.date?.slice(0, 7) || "";
+    if (!monthlyDataChart[month]) monthlyDataChart[month] = { pemasukan: 0, pengeluaran: 0 };
+    if (tx.type === "Pemasukan") monthlyDataChart[month].pemasukan += Number(tx.amount);
+    else monthlyDataChart[month].pengeluaran += Number(tx.amount);
+  });
+  const chartMonths = Object.keys(monthlyDataChart).sort();
+  const chartPemasukanPerBulan = chartMonths.map((m) => monthlyDataChart[m].pemasukan);
+  const chartPengeluaranPerBulan = chartMonths.map((m) => monthlyDataChart[m].pengeluaran);
+
+  // Data bulanan untuk tabel (tetap menggunakan filter)
   const monthlyData: Record<string, MonthlyAgg> = {};
   filteredTransactions.forEach((tx) => {
     const month = tx.date?.slice(0, 7) || "";
@@ -85,12 +106,21 @@ export default function DashboardPage() {
   const pemasukanPerBulan = months.map((m) => monthlyData[m].pemasukan);
   const pengeluaranPerBulan = months.map((m) => monthlyData[m].pengeluaran);
 
-  // Grafik: komposisi kategori
+  // Grafik: komposisi kategori (menggunakan filter yang sama dengan BalanceOverview)
+  const currentYear = new Date().getFullYear();
   const kategoriData: Record<string, number> = {};
-  filteredTransactions.forEach((tx) => {
-    if (tx.type === "Pengeluaran") {
-      kategoriData[tx.category] = (kategoriData[tx.category] || 0) + Number(tx.amount);
-    }
+  
+  // Filter transaksi berdasarkan balanceSelectedMonth
+  const pieChartTransactions = balanceSelectedMonth === "all" 
+    ? sortedTransactions.filter((tx) => tx.type === "Pengeluaran")
+    : sortedTransactions.filter((tx) => {
+        if (tx.type !== "Pengeluaran") return false;
+        const transactionMonth = tx.date?.split('-')[1];
+        return transactionMonth === balanceSelectedMonth;
+      });
+
+  pieChartTransactions.forEach((tx) => {
+    kategoriData[tx.category] = (kategoriData[tx.category] || 0) + Number(tx.amount);
   });
   const kategoriLabels = Object.keys(kategoriData);
   const kategoriValues = Object.values(kategoriData);
@@ -175,7 +205,10 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-8">
               {/* Balance Overview */}
-              <BalanceOverview />
+              <BalanceOverview 
+                selectedMonth={balanceSelectedMonth}
+                onMonthChange={setBalanceSelectedMonth}
+              />
 
               {/* Form Transaksi */}
               <Card>
@@ -187,14 +220,14 @@ export default function DashboardPage() {
             {/* Grafik */}
             <div className="space-y-8">
               <div className="space-y-8">
+                <PieChart labels={kategoriLabels} values={kategoriValues} />
                 <DashboardChart
-                  data={months.map((month, index) => ({
+                  data={chartMonths.map((month, index) => ({
                     month: formatMonth(month),
-                    pemasukan: pemasukanPerBulan[index],
-                    pengeluaran: pengeluaranPerBulan[index],
+                    pemasukan: chartPemasukanPerBulan[index],
+                    pengeluaran: chartPengeluaranPerBulan[index],
                   }))}
                 />
-                <PieChart labels={kategoriLabels} values={kategoriValues} />
               </div>
             </div>
           </div>
